@@ -1,0 +1,120 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Auth
+  password String?
+  accounts Account[]
+  sessions Session[]
+
+  // App data
+  profile          Profile?
+  stripeCustomerId String?
+  subscription     Subscription?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Profile {
+  id            String   @id @default(cuid())
+  username      String   @unique
+  displayName   String
+  bio           String?  @db.Text
+  theme         String   @default("default")
+  bookingHtml   String?  @db.Text
+  avatarUrl     String?
+  backgroundUrl String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  links  Link[]
+
+  // Analytics
+  views Int @default(0)
+}
+
+model Link {
+  id        String   @id @default(cuid())
+  title     String
+  url       String
+  enabled   Boolean  @default(true)
+  position  Int
+  clicks    Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  profileId String
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  // Analytics
+  clickDetails LinkClick[]
+}
+
+model LinkClick {
+  id        String   @id @default(cuid())
+  linkId    String
+  link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  source    String?
+  referrer  String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model Subscription {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeSubscriptionId   String   @unique
+  stripePriceId          String
+  stripeCustomerId       String
+  stripeCurrentPeriodEnd DateTime
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  planType               String   @default("free") // "free", "premium", "pro"
+}
